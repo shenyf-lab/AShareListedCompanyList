@@ -1,0 +1,39 @@
+{
+  "pageHelp": {
+    "pageCount": 1,
+    "pageSize": 50,
+    "total": 41,
+    "data": [
+      {
+        "STOCK_TYPE": "2",
+        "COMPANY_ABBR": "黄山旅游",
+        "A_STOCK_CODE": "600054",
+        "SEC_NAME_CN": "黄山Ｂ股",
+        "B_STOCK_CODE": "900942",
+        "LIST_DATE": "19961122",
+        "COMPANY_CODE": "600054",
+        "FULL_NAME": "黄山旅游发展股份有限公司"
+      },
+      {
+        "STOCK_TYPE": "2",
+        "COMPANY_ABBR": "大名城",
+        "A_STOCK_CODE": "600094",
+        "SEC_NAME_CN": "大名城B",
+        "B_STOCK_CODE": "900940",
+        "LIST_DATE": "19960726",
+        "COMPANY_CODE": "600094",
+        "FULL_NAME": "上海大名城企业股份有限公司"
+      },
+      {
+        "STOCK_TYPE": "2",
+        "COMPANY_ABBR": "锦旅Ｂ股",
+        "A_STOCK_CODE": "-",
+        "SEC_NAME_CN": "锦旅Ｂ股",
+        "B_STOCK_CODE": "900929",
+        "LIST_DATE": "19940928",
+        "COMPANY_CODE": "900929",
+        "FULL_NAME": "上海锦江国际旅游股份有限公司"
+      }
+    ]
+  }
+}
