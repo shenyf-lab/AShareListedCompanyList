@@ -1,0 +1,33 @@
+requirements.txt
+  s_649b12923fb9f6::t_45fccc8a84cf1d 4
+tests/fixtures/szse_stats.json
+  s_649b12923fb9f6::t_2d21573dde201a 1
+src/ashare/szse.py
+  s_649b12923fb9f6::t_ba4ba9f6563733 2,4
+  s_649b12923fb9f6::t_ee198119a6adff 63-113
+src/ashare/sse.py
+  s_649b12923fb9f6::t_ae42b12d30e6bc 2,7,12,15-16,23
+  s_649b12923fb9f6::t_33eafd1bb043fc 199-268
+tests/test_szse.py
+  s_649b12923fb9f6::t_03faa0fe584922 41-78
+  s_649b12923fb9f6::t_4de6871ffeb5c0 4-5
+tests/test_sse.py
+  s_649b12923fb9f6::t_5a2a3b4ca15917 3,10,16
+  s_649b12923fb9f6::t_903a8f3b204783 254-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5400bb3336f06985bf70e220a75c8aa9f8300f63",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "unknown"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
