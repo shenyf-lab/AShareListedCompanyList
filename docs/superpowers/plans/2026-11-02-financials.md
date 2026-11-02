@@ -20,7 +20,7 @@
 - commit：conventional + 中文 + `Co-Authored-By: Claude Code <noreply@anthropic.com>`
 - 不改动既有 49 个测试的行为
 
-## Task F1: 新浪财报模块
+## Task 1: 新浪财报模块
 
 **Files:**
 - Create: `src/ashare/sina.py`、`tests/fixtures/sina_lrb_sample.json`（从素材裁剪）
@@ -41,7 +41,7 @@
 - [ ] `python -m pytest tests/ -v` 全绿（49 既有 + 新增）
 - [ ] Commit: `feat: 新浪财报模块（年报/半年报三大报表抓取与解析）`
 
-## Task F2: 存储集成、CLI 与冒烟
+## Task 2: 存储集成、CLI 与冒烟
 
 **Files:**
 - Modify: `src/ashare/storage.py`、`src/ashare/main.py`、`README.md`
