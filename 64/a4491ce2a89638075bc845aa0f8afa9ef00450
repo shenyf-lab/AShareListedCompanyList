@@ -1,0 +1,23 @@
+requirements.txt
+  s_649b12923fb9f6::t_b7f64017e1b1a5 1-6
+src/ashare/httpclient.py
+  s_649b12923fb9f6::t_76742b537240f0 1-95
+tests/test_httpclient.py
+  s_649b12923fb9f6::t_cbfe20f94b2921 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64a4491ce2a89638075bc845aa0f8afa9ef00450",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
