@@ -1,0 +1,23 @@
+src/ashare/sse.py
+  s_649b12923fb9f6::t_7dc327b0c73204 1-82
+tests/fixtures/sse_companies_p1.json
+  s_649b12923fb9f6::t_0b9cfdf70c4435 1-77
+tests/test_sse.py
+  s_649b12923fb9f6::t_883c3fa7ebe83b 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "244b0ffe700a10d1e81a78c28ba34d925626c178",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
