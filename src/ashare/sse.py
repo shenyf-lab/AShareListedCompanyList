@@ -1,14 +1,18 @@
 # src/ashare/sse.py
-"""上交所 A 股上市公司列表抓取与详情补齐。
+"""上交所 A 股上市公司列表抓取、详情补齐与市场统计。
 
 列表：主板+科创板分页抓取 commonQuery 接口并解析为统一中文列名。
 详情：每家公司请求公司概况/股本结构接口补齐 注册地址/公司网址/股本；
 B股上市日期 由一次 STOCK_TYPE=2 列表请求建 {B股代码: 上市日期} 映射后回填。
+统计：市场统计表下载解析为长表三行（整体/主板/科创板）。
 
 client 由调用方构造并传入（Referer 需为 http://www.sse.com.cn/），本模块不建 client。
 """
 import datetime
+from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from .clean import empty_if_dash, extract_ascii, normalize_date, normalize_number
 from .httpclient import HttpClient
@@ -16,6 +20,7 @@ from .httpclient import HttpClient
 SSE_QUERY_URL = "https://query.sse.com.cn/sseQuery/commonQuery.do"
 SSE_PROFILE_URL = "https://query.sse.com.cn/commonQuery.do"  # 公司概况（老路径，实测存活）
 SSE_CAPITAL_URL = "https://query.sse.com.cn/security/stock/queryCompanyStockStruct.do"  # 股本结构
+SSE_STATS_URL = "https://query.sse.com.cn/commonExcelDd.do"  # 市场统计表下载
 
 STOCK_TYPE_MAIN = 1  # 主板
 STOCK_TYPE_STAR = 8  # 科创板（实测：STOCK_TYPE=8 返回 688xxx，LIST_BOARD=2）
@@ -191,3 +196,73 @@ def enrich_sse_details(client: HttpClient, companies: list[dict]) -> list[dict]:
                 print("详情接口不可用，已降级为列表字段")
                 break
     return companies
+
+
+# ---------- 市场统计 ----------
+
+SSE_STATS_SQL_ID = "COMMON_SSE_SJ_GPSJ_GPSJZM_TJSJ_L"
+
+# 统计表 品种名称 -> 板块（长表口径）
+_SSE_STATS_BOARDS = {"股票": "整体", "主板": "主板", "科创板": "科创板"}
+
+
+def _parse_stats_table(df: pd.DataFrame, date: str) -> list[dict]:
+    """上交所统计表（表头形如 "上市公司/家"，含 '/单位' 后缀）-> 长表行列表。
+
+    品种名称不在 股票/主板/科创板 中的行跳过；深特有 3 列（成交金额/平均股价/换手率）无数据置 None。
+    """
+    labels = {str(label).split("/")[0]: label for label in df.columns}
+
+    def value(record: dict, prefix: str) -> float | None:
+        return normalize_number(record.get(labels.get(prefix)))
+
+    rows: list[dict] = []
+    for record in df.to_dict("records"):
+        board = _SSE_STATS_BOARDS.get(str(record.get(labels.get("品种名称")) or "").strip())
+        if board is None:
+            continue
+        rows.append({
+            "日期": date,
+            "交易所": "SSE",
+            "板块": board,
+            "上市公司数": value(record, "上市公司"),
+            "上市证券数": value(record, "上市股票"),
+            "总股本(亿股)": value(record, "总股本"),
+            "流通股本(亿股)": value(record, "流通股本"),
+            "总市值(亿元)": value(record, "总市值"),
+            "流通市值(亿元)": value(record, "流通市值"),
+            "平均市盈率": value(record, "平均市盈率"),
+            "成交金额(亿元)": None,
+            "平均股价(元)": None,
+            "换手率(%)": None,
+        })
+    return rows
+
+
+def fetch_sse_market_stats(client: HttpClient, date: str, cache_dir: Path) -> list[dict]:
+    """抓取上交所市场统计 → 长表 0 或 3 行（整体/主板/科创板）。
+
+    下载到 cache_dir/sse_stats_{date}.xlsx（URL 虽为 ExcelDd，实测内容是 CDFV2 xls，
+    pandas 按内容嗅探自动走 xlrd），解析后删除缓存文件；
+    下载/解析失败打印提示返回 []，不向调用方抛异常。
+    """
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    dest = cache_dir / f"sse_stats_{date}.xlsx"
+    try:
+        client.download(
+            SSE_STATS_URL,
+            dest,
+            params={
+                "sqlId": SSE_STATS_SQL_ID,
+                "PRODUCT_NAME": "股票,主板,科创板",  # requests 自动 URL 编码
+                "type": "inParams",
+                "TRADE_DATE": date,
+            },
+        )
+        return _parse_stats_table(pd.read_excel(dest), date)
+    except Exception:
+        print(f"上交所市场统计获取失败，已跳过 {date}")
+        return []
+    finally:
+        dest.unlink(missing_ok=True)  # 缓存文件用后即删

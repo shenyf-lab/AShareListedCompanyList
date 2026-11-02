@@ -1,16 +1,19 @@
 # tests/test_sse.py
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 
 from src.ashare.sse import (
     fetch_sse_companies,
+    fetch_sse_market_stats,
     _parse_company,
     enrich_sse_details,
     STOCK_TYPE_MAIN,
     STOCK_TYPE_STAR,
 )
+from src.ashare.storage import STATS_COLUMNS
 
 FIX = Path(__file__).parent / "fixtures" / "sse_companies_p1.json"
 
@@ -248,3 +251,42 @@ def test_enrich_b_list_failure_leaves_dates_empty():
     assert rows[0]["B股上市日期"] == ""                     # B 股列表失败 → 日期留空
     assert rows[0]["注册地址"] == "上海市中山东一路12号"     # 其余详情不受影响
     assert rows[0]["A股流通股本(股)"] == pytest.approx(29352168000.0)
+
+
+# ---------- Task 7: 市场统计 ----------
+
+STATS_FIX = Path(__file__).parent / "fixtures" / "sse_stats.xlsx"
+
+def test_fetch_sse_market_stats_three_rows(tmp_path):
+    class DlClient:
+        def __init__(self): self.calls = []
+        def download(self, url, dest, params=None):
+            self.calls.append((url, Path(dest).name, params))
+            shutil.copy(STATS_FIX, dest)
+            return dest
+    client = DlClient()
+    rows = fetch_sse_market_stats(client, "2026-10-30", tmp_path)
+    url, cache_name, params = client.calls[0]
+    assert url == "https://query.sse.com.cn/commonExcelDd.do"
+    assert cache_name == "sse_stats_2026-10-30.xlsx"
+    assert params == {"sqlId": "COMMON_SSE_SJ_GPSJ_GPSJZM_TJSJ_L",
+                      "PRODUCT_NAME": "股票,主板,科创板", "type": "inParams",
+                      "TRADE_DATE": "2026-10-30"}
+    assert [r["板块"] for r in rows] == ["整体", "主板", "科创板"]
+    for r in rows:
+        assert set(r) == set(STATS_COLUMNS)
+        assert r["日期"] == "2026-10-30" and r["交易所"] == "SSE"
+    whole = rows[0]
+    assert whole["上市公司数"] == 2321 and whole["总市值(亿元)"] == 629609.47
+    assert whole["平均市盈率"] == 15.81
+    assert whole["成交金额(亿元)"] is None and whole["平均股价(元)"] is None \
+        and whole["换手率(%)"] is None                       # 深特有 3 列，沪市无
+    assert rows[1]["上市公司数"] == 1703 and rows[1]["总市值(亿元)"] == 501985.8  # 主板行有公司数
+    assert rows[2]["上市证券数"] == 618 and rows[2]["平均市盈率"] == 91.1         # 科创板
+    assert not (tmp_path / "sse_stats_2026-10-30.xlsx").exists()                  # 缓存文件用后即删
+
+def test_fetch_sse_market_stats_download_failure_returns_empty(tmp_path, capsys):
+    class DeadClient:
+        def download(self, url, dest, params=None): raise RuntimeError("down")
+    assert fetch_sse_market_stats(DeadClient(), "2026-10-30", tmp_path) == []
+    assert "上交所市场统计获取失败" in capsys.readouterr().out   # 打印提示，不抛异常

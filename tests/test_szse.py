@@ -1,7 +1,8 @@
 # tests/test_szse.py
 import json
 from pathlib import Path
-from src.ashare.szse import fetch_szse_companies, _parse_company
+from src.ashare.storage import STATS_COLUMNS
+from src.ashare.szse import fetch_szse_companies, fetch_szse_market_stats, _parse_company
 
 FIX = Path(__file__).parent / "fixtures" / "szse_companies_p1.json"
 
@@ -37,3 +38,41 @@ def test_fetch_pages_until_recordcount():
     rows = fetch_szse_companies(FakeClient([p1]))
     assert len(rows) == 3
     assert {r["公司代码"] for r in rows} == {"000001", "000002", "000010"}
+
+
+# ---------- Task 7: 市场统计 ----------
+
+STATS_FIX = Path(__file__).parent / "fixtures" / "szse_stats.json"
+
+def test_fetch_szse_market_stats_maps_indicators_only():
+    resp = json.loads(STATS_FIX.read_text(encoding="utf-8"))
+    class StatsClient:
+        def __init__(self): self.params = None
+        def get_json(self, url, params=None):
+            self.params = params
+            return resp
+    client = StatsClient()
+    rows = fetch_szse_market_stats(client, "2026-10-30")
+    assert client.params == {"SHOWTYPE": "JSON", "CATALOGID": "1803_after", "txtQueryDate": "2026-10-30"}
+    assert len(rows) == 1
+    r = rows[0]
+    assert set(r) == set(STATS_COLUMNS)
+    assert r["日期"] == "2026-10-30" and r["交易所"] == "SZSE" and r["板块"] == "整体"
+    assert r["上市公司数"] == 2908 and r["上市证券数"] == 24088
+    assert r["总股本(亿股)"] == 27816.47 and r["流通股本(亿股)"] == 24697.01
+    assert r["总市值(亿元)"] == 363558.55           # 千分位已清洗
+    assert r["流通市值(亿元)"] == 309237.01
+    assert r["平均市盈率"] == 24.75
+    assert r["成交金额(亿元)"] == 9109.10 and r["平均股价(元)"] == 13.06 and r["换手率(%)"] == 2.47
+    assert "深证成指" not in str(r)                    # 指数行被排除
+
+def test_fetch_szse_market_stats_empty_returns_no_rows():
+    class EmptyClient:
+        def get_json(self, url, params=None): return [{"metadata": {}, "data": []}]
+    assert fetch_szse_market_stats(EmptyClient(), "2026-10-31") == []
+
+def test_fetch_szse_market_stats_missing_company_count_returns_no_rows():
+    class IndexOnlyClient:
+        def get_json(self, url, params=None):
+            return [{"metadata": {}, "data": [{"zbmc": "深证成指", "brsz": "10,833.78"}]}]
+    assert fetch_szse_market_stats(IndexOnlyClient(), "2026-10-31") == []

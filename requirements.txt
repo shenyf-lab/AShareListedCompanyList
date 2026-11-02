@@ -1,6 +1,7 @@
 requests
 pandas
 openpyxl
+xlrd>=2.0.1
 
 # 开发依赖（仅测试需要，运行时可不装）
 pytest

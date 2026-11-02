@@ -1,6 +1,7 @@
 # src/ashare/szse.py
-"""深交所 A 股上市公司列表：分页抓取 ShowReport 接口并解析为统一中文列名。
+"""深交所 A 股上市公司列表与市场统计：抓取 ShowReport 接口并解析为统一中文列名。
 
+列表：分页抓取上市公司列表；统计：市场统计（1803_after）指标行映射为长表一行。
 client 由调用方构造并传入（含 Referer 与 x-requested-with 头），本模块不建 client。
 """
 import datetime
@@ -59,3 +60,54 @@ def fetch_szse_companies(client: HttpClient) -> list[dict]:
         rows.extend(resp[0]["data"])
         pageno += 1
     return [_parse_company(row, fetch_date) for row in rows]
+
+
+SZSE_STATS_CATALOG_ID = "1803_after"  # 市场统计（深圳市场 tab）
+
+# 统计指标名（zbmc 精确匹配）-> STATS_COLUMNS 列名；指数行（深证成指等）不在表中即被排除
+_SZSE_STATS_INDICATORS = {
+    "上市公司数": "上市公司数",
+    "上市证券数": "上市证券数",
+    "股票总股本（亿）": "总股本(亿股)",
+    "股票流通股本（亿）": "流通股本(亿股)",
+    "股票总市值（亿元）": "总市值(亿元)",
+    "股票流通市值（亿元）": "流通市值(亿元)",
+    "股票成交金额（亿元）": "成交金额(亿元)",
+    "平均股票价格（元）": "平均股价(元)",
+    "股票平均市盈率": "平均市盈率",
+    "股票平均换手率": "换手率(%)",
+}
+
+
+def fetch_szse_market_stats(client: HttpClient, date: str) -> list[dict]:
+    """抓取深交所市场统计（深圳市场 tab）→ 长表 0 或 1 行（SZSE/整体）。
+
+    指标行按 zbmc 精确匹配映射，值取 brsz（本日数值）过 normalize_number 清洗千分位；
+    data 为空或缺"上市公司数"指标行 → 返回 []。
+    """
+    resp = client.get_json(
+        SZSE_COMPANY_URL,
+        params={"SHOWTYPE": "JSON", "CATALOGID": SZSE_STATS_CATALOG_ID, "txtQueryDate": date},
+    )
+    values: dict[str, float | None] = {}
+    for item in resp[0].get("data") or []:
+        column = _SZSE_STATS_INDICATORS.get(str(item.get("zbmc") or "").strip())
+        if column:
+            values[column] = normalize_number(item.get("brsz"))
+    if values.get("上市公司数") is None:
+        return []
+    return [{
+        "日期": date,
+        "交易所": "SZSE",
+        "板块": "整体",
+        "上市公司数": values.get("上市公司数"),
+        "上市证券数": values.get("上市证券数"),
+        "总股本(亿股)": values.get("总股本(亿股)"),
+        "流通股本(亿股)": values.get("流通股本(亿股)"),
+        "总市值(亿元)": values.get("总市值(亿元)"),
+        "流通市值(亿元)": values.get("流通市值(亿元)"),
+        "平均市盈率": values.get("平均市盈率"),
+        "成交金额(亿元)": values.get("成交金额(亿元)"),
+        "平均股价(元)": values.get("平均股价(元)"),
+        "换手率(%)": values.get("换手率(%)"),
+    }]
