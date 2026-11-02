@@ -14,6 +14,7 @@ def test_get_jsonp_parses_response(monkeypatch):
     calls = []
     class FakeResp:
         text = 'cb123({"result": [{"A": 1}]});'
+        def raise_for_status(self): pass
         def json(self): raise AssertionError("should not be called")
     def fake_get(url, **kw):
         calls.append(url); return FakeResp()
@@ -26,6 +27,7 @@ def test_get_sends_referer_and_extra_headers(monkeypatch):
     seen = {}
     class FakeResp:
         text = '{}'; encoding = 'utf-8'
+        def raise_for_status(self): pass
         def json(self): return {}
     def fake_get(url, headers=None, **kw):
         seen['headers'] = headers; return FakeResp()
@@ -46,6 +48,7 @@ def test_retry_then_success(monkeypatch):
     n = {"i": 0}
     class FakeResp:
         text = '{"ok": true}'
+        def raise_for_status(self): pass
         def json(self): return {"ok": True}
     def fake_get(url, **kw):
         n["i"] += 1
@@ -55,9 +58,30 @@ def test_retry_then_success(monkeypatch):
     c = HttpClient(referer="http://x/", retries=3, min_interval=0)
     assert c.get_json("http://x/") == {"ok": True} and n["i"] == 3
 
+def test_http_error_status_triggers_retry(monkeypatch):
+    from requests.exceptions import HTTPError
+    n = {"i": 0}
+    class BadResp:
+        status_code = 404
+        def raise_for_status(self): raise HTTPError("404")
+        def json(self): raise AssertionError("4xx 响应不应被当作成功返回")
+    class GoodResp:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {"ok": True}
+    def fake_get(url, **kw):
+        n["i"] += 1
+        return BadResp() if n["i"] == 1 else GoodResp()
+    monkeypatch.setattr("src.ashare.httpclient.requests.get", fake_get)
+    c = HttpClient(referer="http://x/", retries=3, min_interval=0)
+    assert c.get_json("http://x/") == {"ok": True}
+    assert n["i"] == 2  # 首次 404 未被当作成功，触发了重试
+
 def test_download_streams_to_file(monkeypatch, tmp_path):
     seen = {}
     class FakeResp:
+        def raise_for_status(self):
+            pass
         def iter_content(self, chunk_size=8192):
             yield b"PK\x03\x04"; yield b"tail"
         def close(self):

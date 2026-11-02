@@ -33,7 +33,7 @@ class HttpClient:
 
     - 固定头：Chrome UA + Referer，可叠加 extra_headers（如深交所的 x-requested-with）
     - 每次请求后 sleep(min_interval)，保证请求间隔 >= min_interval
-    - Timeout / ConnectionError 重试，耗尽抛 RuntimeError
+    - Timeout / ConnectionError / HTTP 4xx 5xx（HTTPError）重试，耗尽抛 RuntimeError
     """
 
     def __init__(
@@ -59,14 +59,16 @@ class HttpClient:
         last_exc: Exception | None = None
         for _ in range(self.retries):
             try:
-                return requests.get(
+                resp = requests.get(
                     url,
                     params=params,
                     headers=self.headers,
                     timeout=self.timeout,
                     stream=stream,
                 )
-            except (requests.Timeout, requests.ConnectionError) as exc:
+                resp.raise_for_status()  # 4xx/5xx 视为失败，进入重试
+                return resp
+            except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
                 last_exc = exc
             finally:
                 # 每次请求（无论成败）后限速，保证相邻请求间隔 >= min_interval
