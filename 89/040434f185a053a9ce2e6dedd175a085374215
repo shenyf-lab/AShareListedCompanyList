@@ -1,0 +1,49 @@
+src/ashare/main.py
+  s_649b12923fb9f6::t_a1cd769649ab19 2,8-9,11,18-19,21,23,26-27
+  s_649b12923fb9f6::t_f4ae07dc3204f4 70-99,103-162
+  s_649b12923fb9f6::t_a92a9e2c4bc8cd 100-102
+  s_649b12923fb9f6::t_843c2ab3a63973 170
+  s_649b12923fb9f6::t_34e14170f62521 178-186,198-199
+  s_649b12923fb9f6::t_b7219dbd047ef7 28
+src/ashare/storage.py
+  s_649b12923fb9f6::t_dff583a12ca4c3 46-47,51-52
+  s_649b12923fb9f6::t_e0a61d5c07aff4 93-117
+  s_649b12923fb9f6::t_9220c871a026e2 2,24-28,32
+  s_649b12923fb9f6::t_549a48d657e991 45
+src/ashare/sina.py
+  s_649b12923fb9f6::t_0145e2d48a35e9 87-90
+README.md
+  s_649b12923fb9f6::t_be0bf9aa4d5752 57-79,87-89
+  s_649b12923fb9f6::t_69fd986051dd2a 18
+  s_649b12923fb9f6::t_591b4fbbe16846 3,5,30-31
+  s_649b12923fb9f6::t_e6454b79e04628 129-144,147,151,155,157,169
+tests/test_sina.py
+  s_649b12923fb9f6::t_fe9672e60e1ca3 135,142-153
+tests/test_main.py
+  s_649b12923fb9f6::t_2cd517e77cdf92 3-4
+  s_649b12923fb9f6::t_b365c32fba9e87 85-128,136-174,177,179,181,183-199
+  s_649b12923fb9f6::t_44faf97cca512c 175-176,178,180,182
+  s_649b12923fb9f6::t_44fef1b5f12b81 129-135
+tests/fixtures/sina_lrb_sample.json
+  s_649b12923fb9f6::t_b1595504b74059 3
+tests/test_storage.py
+  s_649b12923fb9f6::t_8bee9099dd4bcb 111-125
+  s_649b12923fb9f6::t_b9b1d7ba02daf9 3-9
+  s_649b12923fb9f6::t_2cafae18c2b380 71-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "89040434f185a053a9ce2e6dedd175a085374215",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
