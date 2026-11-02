@@ -1,0 +1,23 @@
+src/ashare/sina.py
+  s_649b12923fb9f6::t_a865bb7a6ed307 1-88
+tests/fixtures/sina_lrb_sample.json
+  s_649b12923fb9f6::t_b5435b422992b1 1-3458
+tests/test_sina.py
+  s_649b12923fb9f6::t_8cc3a666b3856c 1-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "df54f1e0378cc6d8162ed79fa6fca787bb15b817",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
