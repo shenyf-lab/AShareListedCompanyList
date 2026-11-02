@@ -1,0 +1,26 @@
+tests/test_httpclient.py
+  s_649b12923fb9f6::t_d123555ee51ce4 51
+  s_649b12923fb9f6::t_a13ac6d71889c2 17
+  s_649b12923fb9f6::t_ffd4bc226529bb 83-84
+  s_649b12923fb9f6::t_a4971a72a7c5bd 30
+  s_649b12923fb9f6::t_6fe356f2da0dd2 61-79
+src/ashare/httpclient.py
+  s_649b12923fb9f6::t_98b0622fc9c50e 36
+  s_649b12923fb9f6::t_f424503ca3b351 62,69-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ccfaceb113ad617c9420b1ca82db040819e1fc93",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
