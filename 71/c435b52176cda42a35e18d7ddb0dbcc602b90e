@@ -1,0 +1,48 @@
+tests/test_storage.py
+  s_649b12923fb9f6::t_335d88f39818b2 21-28
+  s_649b12923fb9f6::t_6f6b57fe46ab1d 46-64
+README.md
+  s_649b12923fb9f6::t_354733f16b1a07 18
+  s_649b12923fb9f6::t_b5cf2cbf6e3458 97
+  s_649b12923fb9f6::t_d3847c46feda36 105-106
+tests/test_szse.py
+  s_649b12923fb9f6::t_80c421fec6f517 4-6
+  s_649b12923fb9f6::t_ef4be73e337813 46-76
+src/ashare/clean.py
+  s_649b12923fb9f6::t_93f963357b903a 2
+  s_649b12923fb9f6::t_97307cba438ad6 60-77
+src/ashare/storage.py
+  s_649b12923fb9f6::t_8dc0a9111cb9b9 29-45,53-54,77
+requirements.txt
+  s_649b12923fb9f6::t_1b4c3b8f060d48 2
+src/ashare/sse.py
+  s_649b12923fb9f6::t_a2bff8289ada5b 265-266,282-287
+  s_649b12923fb9f6::t_b301a9eb59751d 101-102,104,111-115,118,122-126,130-131
+  s_649b12923fb9f6::t_51efff4cdb8bb4 17
+  s_649b12923fb9f6::t_578b03969e9560 149
+  s_649b12923fb9f6::t_76ace200ea789c 176-177,201,203,207,209-210,214-215
+tests/test_sse.py
+  s_649b12923fb9f6::t_2423364623ef28 6
+  s_649b12923fb9f6::t_dd88d0aa20f436 316-329
+  s_649b12923fb9f6::t_976137f2ee3c0f 142,154-156
+  s_649b12923fb9f6::t_43b3e0098a073a 69-88
+src/ashare/szse.py
+  s_649b12923fb9f6::t_4e1fd0a4522dde 48-52,57,65-69,72
+  s_649b12923fb9f6::t_3f1fc4953332a7 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "71c435b52176cda42a35e18d7ddb0dbcc602b90e",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
