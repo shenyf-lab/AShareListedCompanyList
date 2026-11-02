@@ -1,0 +1,32 @@
+tests/test_szse.py
+  s_649b12923fb9f6::t_cc72cc61400370 12
+  s_649b12923fb9f6::t_0083060b3661d2 1-11,13-39
+src/ashare/szse.py
+  s_649b12923fb9f6::t_427affd729ed94 1-61
+tests/fixtures/szse_companies_p1.json
+  s_63eaa19f2fa968::t_0364ad57ea6a9d 1-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6728f4e9b3e0cb926fc6eb3698a3f5b12c9cea1",
+  "prompts": {},
+  "sessions": {
+    "s_63eaa19f2fa968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a50da2997ba5ca48e",
+        "model": "unknown"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    },
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
