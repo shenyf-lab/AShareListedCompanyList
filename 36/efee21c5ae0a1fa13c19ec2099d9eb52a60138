@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-11-02-financials.md
+  s_649b12923fb9f6::t_bdd2de40127ead 23,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "36efee21c5ae0a1fa13c19ec2099d9eb52a60138",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "unknown"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
