@@ -4,7 +4,7 @@
 接口 CompanyFinanceService.getFinanceReport2022 单页（num=1000）即返回全部报告期，
 每期自带 publish_date/is_audit/rCurrency 元信息与全科目明细（item_title/item_value）。
 本模块只保留年报（1231）/半年报（0630）报告期（季报丢弃），按 years 截取近年；
-行内科目为动态键（item_value 转 float，'-'/null -> None，重复科目保留首个）。
+行内科目为动态键（item_value 转 float，'-'/null -> None，重复科目取首个非空值）。
 client 由调用方构造并传入（Referer 需为 https://finance.sina.com.cn/），本模块不建 client。
 """
 import datetime
@@ -37,7 +37,8 @@ def _parse_statement(data: dict, code: str, years: int) -> list[dict]:
 
     每行 = {代码, 报告期(YYYY-MM-DD), 报告类型(年报|半年报), 披露日, 是否审计, 币种, **科目…}：
     - 报告期过滤：仅保留 1231/0630 后缀（季报丢弃）；years 过滤：报告期年份 >= 当前年-years+1
-    - 科目为动态键：item_value 转 float，'-'/null -> None；重复 item_title 保留首个
+    - 科目为动态键：item_value 转 float，'-'/null -> None；重复 item_title 取首个非空值
+      （首条 null 时由后续有值条目补齐，避免静默丢弃有值科目）
     """
     cutoff_year = datetime.date.today().year - years + 1
     rows: list[dict] = []
@@ -63,8 +64,11 @@ def _parse_statement(data: dict, code: str, years: int) -> list[dict]:
         }
         for item in report.get("data") or []:
             title = item.get("item_title")
-            if title and title not in row:  # 重复科目（及与固定列同名）保留首个
-                row[title] = normalize_number(item.get("item_value"))
+            value = normalize_number(item.get("item_value"))
+            # 同题科目取首个非空值：首条为 null 时由后续有值条目补齐（万科利润表 INTEINCO
+            # null / INTEINCOOPCOST 350673182.08 实证）；固定列恒为非 None 字符串，不会被覆盖
+            if title and (title not in row or (row[title] is None and value is not None)):
+                row[title] = value
         rows.append(row)
     return rows
 

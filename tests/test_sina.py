@@ -81,8 +81,9 @@ def test_parse_item_values_as_float():
 
 def test_parse_none_value_item():
     rows = {r["报告期"]: r for r in _parse_statement(load_data(), "000002", YEARS_FROM_2025)}
-    # 万科利润表首条"利息收入"为 null，第二条同名科目 350673182.08 → 保留首个即 None
-    assert rows["2026-06-30"]["利息收入"] is None
+    # 万科利润表首条"利息收入"为 null（INTEINCO），第二条同名科目 350673182.08（INTEINCOOPCOST）
+    # → 同题科目取首个非空值，不得静默丢弃有值科目
+    assert rows["2026-06-30"]["利息收入"] == pytest.approx(350673182.08)
 
 def test_parse_dash_value_becomes_none():
     data = {
@@ -98,7 +99,8 @@ def test_parse_dash_value_becomes_none():
     rows = _parse_statement(data, "000002", YEARS_FROM_2025)
     assert rows[0]["营业收入"] is None and rows[0]["净利润"] == 100.5
 
-def test_parse_duplicate_title_keeps_first():
+def test_parse_duplicate_title_keeps_first_non_null():
+    """同题科目取首个非空值：首条有值保持首条；首条 null 由次条有值补齐；全 null 保持 None。"""
     data = {
         "report_date": [{"date_value": "20251231"}],
         "report_list": {"20251231": {
@@ -106,11 +108,17 @@ def test_parse_duplicate_title_keeps_first():
             "data": [
                 {"item_title": "利息收入", "item_value": "111.0"},
                 {"item_title": "利息收入", "item_value": "222.0"},
+                {"item_title": "手续费收入", "item_value": None},
+                {"item_title": "手续费收入", "item_value": "333.0"},
+                {"item_title": "汇兑收益", "item_value": None},
+                {"item_title": "汇兑收益", "item_value": "-"},
             ],
         }},
     }
     rows = _parse_statement(data, "000002", YEARS_FROM_2025)
-    assert rows[0]["利息收入"] == 111.0
+    assert rows[0]["利息收入"] == 111.0     # 首条有值 → 保持首条
+    assert rows[0]["手续费收入"] == 333.0   # 首条 null → 取次条有值
+    assert rows[0]["汇兑收益"] is None      # 各条均为 null/'-' → 保持 None
 
 def test_parse_empty_data_returns_empty_list():
     assert _parse_statement({}, "000002", 10) == []

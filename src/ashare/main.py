@@ -8,7 +8,7 @@
     python -m src.ashare.main financials [--symbols 600000,000001] [--years 10]
                                          [--statements income,balance,cashflow] [--data-dir PATH]
 
-退出码：0 正常（含"无数据跳过"），1 失败（未捕获异常或护栏中止）。
+退出码：0 正常（含"无数据跳过"），1 失败（未捕获异常、护栏中止或 --symbols 全部未命中）。
 """
 import argparse
 import datetime
@@ -94,6 +94,7 @@ def _run_financials(args: argparse.Namespace) -> int:
 
     - 单家失败打印代码与异常后继续；连续 5 家失败判定接口不可用，中止返回 1
     - 有数据（≥1 行）公司占比 < 50% 判定接口异常，中止且不写任何数据
+    - --symbols 给定但全部未命中 → 无待抓取公司，返回 1（默认全清单为空仍返回 0）
     - 全部抓取完成后按报表幂等追加（代码+报告期 同键覆盖），简称取自清单
     """
     statements = [s.strip() for s in args.statements.split(",") if s.strip()]
@@ -112,6 +113,9 @@ def _run_financials(args: argparse.Namespace) -> int:
         return 1
     companies = _select_financial_companies(args, data_dir)
     if not companies:
+        if args.symbols:  # --symbols 显式给出却全部未命中：手误当失败，防调用方误判成功
+            print("--symbols 指定的代码均不在 companies_latest.csv 中，无待抓取公司")
+            return 1
         print("无待抓取公司，未做任何请求")
         return 0
     print(f"待抓取 {len(companies)} 家公司 × {len(statements)} 张报表（近 {args.years} 年）")

@@ -197,3 +197,55 @@ def test_financials_low_data_ratio_aborts_before_writing(monkeypatch, tmp_path, 
     assert "50%" in out and "未写入" in out
     assert not any((tmp_path / f"financials_{st}.csv").exists()
                    for st in ("income", "balance", "cashflow"))
+
+def test_financials_years_below_one_returns_one(tmp_path, capsys):
+    """--years < 1：与非法 statements 同构，CLI 捕获 ValueError 后退出 1，不落盘。"""
+    write_companies_csv(tmp_path, ["600000"])
+    rc = main(["financials", "--years", "0", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "--years" in out and "正整数" in out
+    assert not (tmp_path / "financials_income.csv").exists()
+
+def test_financials_data_ratio_strict_less_boundary(monkeypatch, tmp_path, capsys):
+    """护栏为 strict <：1/2 = 恰好 50% 不中止、正常落盘；0/2 = 0% 才中止。"""
+    half_dir, zero_dir = tmp_path / "half", tmp_path / "zero"
+    for d in (half_dir, zero_dir):
+        d.mkdir()
+        write_companies_csv(d, ["600000", "000002"])
+    def half_fake(client, paper_code, statement, years=10):
+        return [fin_row(paper_code[2:])] if paper_code.endswith("600000") else []
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", half_fake)
+    assert main(["financials", "--data-dir", str(half_dir)]) == 0
+    df = pd.read_csv(half_dir / "financials_income.csv", dtype={"代码": str})
+    assert list(df["代码"]) == ["600000"]                  # 1 < 2*0.5 为 False → 恰不中止
+
+    monkeypatch.setattr(main_mod, "fetch_sina_statement",
+                        lambda c, pc, st, years=10: [])
+    assert main(["financials", "--data-dir", str(zero_dir)]) == 1
+    out = capsys.readouterr().out
+    assert "0/2" in out and "50%" in out and "未写入" in out
+    assert not (zero_dir / "financials_income.csv").exists()
+
+def test_financials_symbols_all_miss_returns_one(monkeypatch, tmp_path, capsys):
+    """--symbols 全部未命中 → 退出码 1（防调用方把整串手误当成功）；默认全清单为空仍为 0。"""
+    write_companies_csv(tmp_path, ["600000"])
+    fetched: list[str] = []
+    def fake(client, paper_code, statement, years=10):
+        fetched.append(paper_code)
+        return []
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", fake)
+    rc = main(["financials", "--symbols", "999999,888888", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "999999" in out and "888888" in out and "跳过" in out
+    assert fetched == []                                   # 未发起任何财报请求
+    assert not (tmp_path / "financials_income.csv").exists()
+
+    empty_dir = tmp_path / "empty"                         # 默认全清单且清单为空：行为不变
+    empty_dir.mkdir()
+    (empty_dir / "companies_latest.csv").write_text("交易所,A股代码,A股简称\n",
+                                                    encoding="utf-8-sig")
+    assert main(["financials", "--data-dir", str(empty_dir)]) == 0
+    assert fetched == []
+    assert "无待抓取公司" in capsys.readouterr().out
