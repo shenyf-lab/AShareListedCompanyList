@@ -84,5 +84,9 @@ def fetch_sina_statement(client: HttpClient, paper_code: str, statement: str,
         "page": "1",
         "num": "1000",
     })
+    status = (((resp or {}).get("result") or {}).get("status") or {})
+    code = status.get("code")
+    if code != 0:  # 非 0（含 status 结构缺失）为接口错误/结构变更，不得静默返回空
+        raise RuntimeError(f"新浪财报接口返回错误状态码：{code}")
     data = ((resp or {}).get("result") or {}).get("data") or {}
     return _parse_statement(data, paper_code[2:], years)

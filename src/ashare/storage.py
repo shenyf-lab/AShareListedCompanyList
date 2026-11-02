@@ -1,5 +1,5 @@
 # src/ashare/storage.py
-"""存储层：公司快照落盘（CSV + 三 sheet xlsx）与市场统计幂等追加。
+"""存储层：公司快照落盘（CSV + 三 sheet xlsx）、市场统计与财报三表幂等追加。
 
 输入均为上游解析好的 list[dict]（中文列名齐全），本模块不抓取、不清洗，
 只负责列序、排序、幂等去重与落盘；CSV 一律 utf-8-sig（带 BOM，Excel 直开不乱码）。
@@ -21,9 +21,15 @@ STATS_COLUMNS: list[str] = [
     "成交金额(亿元)", "平均股价(元)", "换手率(%)",
 ]
 
+# 财报三表固定列（科目列为动态并集，追加在后）
+FINANCIAL_FIXED_COLUMNS: list[str] = [
+    "代码", "简称", "报告期", "报告类型", "披露日", "是否审计", "币种",
+]
+
 COMPANIES_CSV = "companies_latest.csv"
 MARKET_STATS_CSV = "market_stats.csv"
 STATS_KEYS = ["日期", "交易所", "板块"]  # 幂等键
+FINANCIALS_KEYS = ["代码", "报告期"]     # 财报幂等键
 
 
 def _int_if_whole_float(value):
@@ -36,11 +42,14 @@ def _strip_float_tail(df: pd.DataFrame) -> pd.DataFrame:
 
     上游 normalize_number 恒返 float（"2321" → 2321.0），直接 to_csv 会写成 "2321.0"；
     非整数 float（363558.55）不受影响。追加路径会重读旧 CSV（旧版可能已带 ".0"），
-    故转换必须在每次写入前做。
+    故转换必须在每次写入前做。列内整数与小数/缺失混排时（财报科目常态），
+    逐格转好的 int 会被 pandas 回强转为 float64（Series 构造时类型推断），
+    故结果列必须显式声明 object dtype 才能保住 int。
     """
     if df.empty:
         return df
-    return df.apply(lambda col: col.map(_int_if_whole_float))
+    return df.apply(lambda col: pd.Series(
+        [_int_if_whole_float(v) for v in col.tolist()], dtype=object, index=col.index))
 
 
 def save_companies(rows: list[dict], data_dir: Path) -> tuple[Path, Path]:
@@ -79,5 +88,30 @@ def append_market_stats(new_rows: list[dict], data_dir: Path) -> Path:
         .drop_duplicates(subset=STATS_KEYS, keep="last")
         .sort_values(STATS_KEYS)
     )
+    merged.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    return csv_path
+
+
+def append_financials(rows: list[dict], data_dir: Path, statement: str) -> Path:
+    """财报行幂等追加到 data/financials_{statement}.csv。
+
+    - 幂等键 代码+报告期：同键新行覆盖旧行（keep='last'），其它键旧行保留
+    - 固定 7 列恒在前，科目列为新旧文件列并集（旧列序保留、新科目追加在后）
+    - 旧文件重读时 代码 按文本读（"000002" 不丢前导零），落盘前按 代码+报告期 排序
+    - rows 为空且无历史文件时仅写固定列表头（不产生数据行）
+    """
+    data_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = data_dir / f"financials_{statement}.csv"
+    old = (pd.read_csv(csv_path, dtype={"代码": str})
+           if csv_path.exists() else pd.DataFrame())
+    merged = pd.concat([old, pd.DataFrame(rows)], ignore_index=True)
+    if "代码" not in merged.columns:  # 无历史文件且 rows 为空
+        merged = pd.DataFrame(columns=FINANCIAL_FIXED_COLUMNS)
+    else:
+        fixed = [c for c in FINANCIAL_FIXED_COLUMNS if c in merged.columns]
+        merged = (merged[fixed + [c for c in merged.columns if c not in fixed]]
+                  .drop_duplicates(subset=FINANCIALS_KEYS, keep="last")
+                  .sort_values(FINANCIALS_KEYS))
+    merged = _strip_float_tail(merged)
     merged.to_csv(csv_path, index=False, encoding="utf-8-sig")
     return csv_path

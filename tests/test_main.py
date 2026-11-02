@@ -1,5 +1,7 @@
 # tests/test_main.py
 """CLI 编排测试：monkeypatch main 模块上的 fetch 函数，验证编排与退出码。"""
+import pandas as pd
+
 from src.ashare import main as main_mod
 from src.ashare.main import main
 
@@ -80,3 +82,118 @@ def test_all_uncaught_exception_prints_and_returns_one(monkeypatch, tmp_path, ca
     assert rc == 1
     assert "boom" in capsys.readouterr().out
     assert not (tmp_path / "market_stats.csv").exists()
+
+
+# ---------- financials ----------
+
+def write_companies_csv(tmp_path, codes):
+    """写最小 companies_latest.csv（financials 只消费 交易所/A股代码/A股简称 三列）。"""
+    lines = ["交易所,A股代码,A股简称"]
+    for code in codes:
+        exchange = "SSE" if code.startswith("6") else "SZSE"
+        lines.append(f"{exchange},{code},公司{code}")
+    (tmp_path / "companies_latest.csv").write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+
+def fin_row(code, period="2025-12-31"):
+    """单条财报行（简称由 main 从清单注入，此处不含）。"""
+    return {"代码": code, "报告期": period, "报告类型": "年报", "披露日": "2026-04-01",
+            "是否审计": "是", "币种": "CNY", "营业收入": 100.0}
+
+def test_financials_happy_path_writes_three_files(monkeypatch, tmp_path, capsys):
+    write_companies_csv(tmp_path, ["600000", "000002"])
+    monkeypatch.setattr(main_mod, "fetch_sina_statement",
+                        lambda c, pc, st, years=10: [fin_row(pc[2:])])
+    rc = main(["financials", "--symbols", "600000,000002", "--data-dir", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "已写入" in out and "income" in out and "cashflow" in out
+    for st in ("income", "balance", "cashflow"):
+        df = pd.read_csv(tmp_path / f"financials_{st}.csv", dtype={"代码": str})
+        assert list(df["代码"]) == ["000002", "600000"]            # 排序
+        assert set(df["简称"]) == {"公司000002", "公司600000"}     # 简称来自清单
+
+def test_financials_missing_companies_csv_returns_one(tmp_path, capsys):
+    rc = main(["financials", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "未找到 companies_latest.csv" in out and "companies" in out
+    assert not (tmp_path / "financials_income.csv").exists()
+
+def test_financials_invalid_statement_returns_one(tmp_path, capsys):
+    write_companies_csv(tmp_path, ["600000"])
+    rc = main(["financials", "--statements", "profit", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    assert "profit" in capsys.readouterr().out
+    assert not (tmp_path / "financials_income.csv").exists()
+
+def test_financials_empty_statements_returns_one(tmp_path, capsys):
+    write_companies_csv(tmp_path, ["600000"])
+    rc = main(["financials", "--statements", " , ", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    assert "未指定报表" in capsys.readouterr().out
+    assert not (tmp_path / "financials_income.csv").exists()
+
+def test_financials_unknown_symbol_warns_and_skips(monkeypatch, tmp_path, capsys):
+    write_companies_csv(tmp_path, ["600000"])
+    monkeypatch.setattr(main_mod, "fetch_sina_statement",
+                        lambda c, pc, st, years=10: [fin_row(pc[2:])])
+    rc = main(["financials", "--symbols", "600000,999999", "--data-dir", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "999999" in out and "跳过" in out
+    df = pd.read_csv(tmp_path / "financials_income.csv", dtype={"代码": str})
+    assert list(df["代码"]) == ["600000"]
+
+def test_financials_company_failure_logged_and_continues(monkeypatch, tmp_path, capsys):
+    write_companies_csv(tmp_path, ["600000", "000002"])
+    def fake(client, paper_code, statement, years=10):
+        if paper_code.endswith("600000"):
+            raise RuntimeError("boom")
+        return [fin_row(paper_code[2:])]
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", fake)
+    rc = main(["financials", "--data-dir", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "600000" in out and "boom" in out
+    assert "共 1 家抓取失败" in out
+    df = pd.read_csv(tmp_path / "financials_income.csv", dtype={"代码": str})
+    assert list(df["代码"]) == ["000002"]
+
+def test_financials_five_consecutive_failures_abort(monkeypatch, tmp_path, capsys):
+    write_companies_csv(tmp_path, [f"60000{i}" for i in range(1, 7)])  # 6 家
+    def boom(client, paper_code, statement, years=10):
+        raise RuntimeError("down")
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", boom)
+    rc = main(["financials", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "接口不可用" in out
+    assert out.count("财报抓取失败") == 5                # 第 5 家即中止，第 6 家未请求
+    assert not (tmp_path / "financials_income.csv").exists()
+
+def test_financials_consecutive_counter_resets_on_success(monkeypatch, tmp_path):
+    """4 失败 + 9 成功 + 4 失败：从未连续 5 家 → 不中止；9/17 有数据过护栏。"""
+    codes = [f"6000{i:02d}" for i in range(1, 18)]      # 600001..600017
+    write_companies_csv(tmp_path, codes)
+    fail = {f"6000{i:02d}" for i in (1, 2, 3, 4, 14, 15, 16, 17)}
+    def fake(client, paper_code, statement, years=10):
+        if paper_code[2:] in fail:
+            raise RuntimeError("flaky")
+        return [fin_row(paper_code[2:])]
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", fake)
+    rc = main(["financials", "--data-dir", str(tmp_path)])
+    assert rc == 0
+    df = pd.read_csv(tmp_path / "financials_income.csv", dtype={"代码": str})
+    assert len(df) == 9                                   # 9 家成功公司的行都落盘
+
+def test_financials_low_data_ratio_aborts_before_writing(monkeypatch, tmp_path, capsys):
+    write_companies_csv(tmp_path, [f"60000{i}" for i in range(1, 5)])  # 4 家
+    def fake(client, paper_code, statement, years=10):
+        return [fin_row(paper_code[2:])] if paper_code.endswith("600001") else []
+    monkeypatch.setattr(main_mod, "fetch_sina_statement", fake)
+    rc = main(["financials", "--data-dir", str(tmp_path)])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "50%" in out and "未写入" in out
+    assert not any((tmp_path / f"financials_{st}.csv").exists()
+                   for st in ("income", "balance", "cashflow"))

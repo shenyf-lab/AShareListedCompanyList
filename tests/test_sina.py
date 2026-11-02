@@ -132,10 +132,22 @@ def test_fetch_sends_params_and_strips_prefix():
 
 def test_fetch_statement_sources_mapping():
     for statement, source in STATEMENT_SOURCES.items():
-        client = FakeClient({"result": {"data": {}}})
+        client = FakeClient({"result": {"status": {"code": 0}, "data": {}}})
         fetch_sina_statement(client, "sh600000", statement)
         assert client.calls[0][1]["source"] == source
 
 def test_fetch_unknown_statement_raises():
     with pytest.raises(ValueError, match="profit"):
         fetch_sina_statement(FakeClient({}), "sz000002", "profit")
+
+def test_fetch_nonzero_status_code_raises():
+    """接口错误态（status.code != 0）必须抛错，不能静默返回 []。"""
+    client = FakeClient({"result": {"status": {"code": 100}, "data": {}}})
+    with pytest.raises(RuntimeError, match="100"):
+        fetch_sina_statement(client, "sz000002", "income")
+
+def test_fetch_missing_status_raises():
+    """status 结构缺失（接口结构变更）同样视为异常，不再静默返回空。"""
+    client = FakeClient({"result": {"data": {}}})
+    with pytest.raises(RuntimeError):
+        fetch_sina_statement(client, "sz000002", "income")

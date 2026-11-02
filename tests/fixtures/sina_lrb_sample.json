@@ -1,5 +1,6 @@
 {
   "result": {
+    "status": {"code": 0},
     "data": {
       "report_date": [
         {
