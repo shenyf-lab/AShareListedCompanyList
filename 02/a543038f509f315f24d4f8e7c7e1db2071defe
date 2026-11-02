@@ -1,0 +1,28 @@
+docs/superpowers/specs/2026-11-02-py3-rewrite-design.md
+  s_649b12923fb9f6::t_0ab3a67c834303 1-59,61-100,108-170,172-177,179-187
+  s_649b12923fb9f6::t_ffcf91b373be5c 101-104,106-107
+  s_649b12923fb9f6::t_40ec6cbf9dc10d 171
+  s_649b12923fb9f6::t_902ab70b922901 60
+  s_649b12923fb9f6::t_9fe826bc8faac3 105
+  s_649b12923fb9f6::t_505d4a8b6c00c1 178
+docs/superpowers/plans/2026-11-02-py3-rewrite.md
+  s_649b12923fb9f6::t_1006677833b42e 1-95,97-101,103,107-709,711-759
+  s_649b12923fb9f6::t_bbb8ee5c34c758 96,102,104-106
+  s_649b12923fb9f6::t_a82cb805e4460a 710
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "02a543038f509f315f24d4f8e7c7e1db2071defe",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
