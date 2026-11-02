@@ -1,0 +1,33 @@
+README.md
+  s_649b12923fb9f6::t_78eec59c7b3159 18
+  s_649b12923fb9f6::t_19ead6f76b1d2b 78-79
+src/ashare/sina.py
+  s_649b12923fb9f6::t_17276a399bc2ae 67-71
+  s_649b12923fb9f6::t_76e650ba501a83 40-41
+  s_649b12923fb9f6::t_59da41fb63da9e 7
+src/ashare/main.py
+  s_649b12923fb9f6::t_33c360dc4653a5 11
+  s_649b12923fb9f6::t_66b687bf283033 116-118
+  s_649b12923fb9f6::t_31dfe4f2fca1fa 97
+tests/test_main.py
+  s_649b12923fb9f6::t_138c31b8db1a00 200-251
+tests/test_sina.py
+  s_649b12923fb9f6::t_e91a75b0169be4 84-86
+  s_649b12923fb9f6::t_3754b1ca5cf11a 102-103,111-114,119-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "be8322a8c8ede2f2bbadb840059bfd498a92ecaf",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
