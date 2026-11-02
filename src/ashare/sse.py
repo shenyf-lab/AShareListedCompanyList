@@ -14,7 +14,7 @@ from typing import Any
 
 import pandas as pd
 
-from .clean import empty_if_dash, extract_ascii, normalize_date, normalize_number
+from .clean import empty_if_dash, extract_ascii, guard_row_count, normalize_date, normalize_number
 from .httpclient import HttpClient
 
 SSE_QUERY_URL = "https://query.sse.com.cn/sseQuery/commonQuery.do"
@@ -98,26 +98,37 @@ def _parse_company(row: dict, board: str, fetch_date: str) -> dict:
     }
 
 
-def _fetch_list_rows(client: HttpClient, stock_type: int, page_size: int = 25) -> list[dict]:
-    """按 STOCK_TYPE 分页抓取 commonQuery 列表接口的全部行。"""
+def _fetch_list_rows(client: HttpClient, stock_type: int, page_size: int = 25) -> tuple[list[dict], int]:
+    """按 STOCK_TYPE 分页抓取 commonQuery 列表接口的全部行，返回 (全部行, 服务端自报总数)。"""
     rows: list[dict] = []
+    total = 0  # 服务端自报总数（第 1 页响应读取；缺失/非法按 0 处理）
     page = 1
     page_count = 1  # 占位，第 1 页响应后更新为服务端真实页数
     while page <= page_count:
         resp = client.get_jsonp(SSE_QUERY_URL, params=_query_params(stock_type, page, page_size))
         page_help = resp.get("pageHelp") or {}
         page_count = int(page_help.get("pageCount", 1))
+        if page == 1:
+            try:
+                total = int(page_help.get("total") or 0)
+            except (TypeError, ValueError):
+                total = 0
         rows.extend(page_help.get("data") or [])
         page += 1
-    return rows
+    return rows, total
 
 
 def fetch_sse_companies(client: HttpClient) -> list[dict]:
-    """抓取上交所主板+科创板 A 股上市公司列表（各自翻页至尾页），返回合并的公司 dict 列表。"""
+    """抓取上交所主板+科创板 A 股上市公司列表（各自翻页至尾页），返回合并的公司 dict 列表。
+
+    护栏：每板块抓完校验服务端自报总数（pageHelp.total），空列表或行数 < 95%
+    （自报总数缺失时 < 500 行）抛 RuntimeError，阻止残缺快照覆盖上次完快照。
+    """
     fetch_date = datetime.date.today().isoformat()
     companies: list[dict] = []
     for board, stock_type in (("主板", STOCK_TYPE_MAIN), ("科创板", STOCK_TYPE_STAR)):
-        rows = _fetch_list_rows(client, stock_type)
+        rows, total = _fetch_list_rows(client, stock_type)
+        guard_row_count(len(rows), total, f"上交所{board}公司列表")
         companies.extend(_parse_company(row, board, fetch_date) for row in rows)
     return companies
 
@@ -135,7 +146,7 @@ def _first_result(resp: Any) -> dict | None:
 def _fetch_b_share_listing_dates(client: HttpClient) -> dict[str, str]:
     """一次 STOCK_TYPE=2 列表请求（一页 50 条）建 {B股代码: 上市日期} 映射。"""
     dates: dict[str, str] = {}
-    for row in _fetch_list_rows(client, STOCK_TYPE_B, page_size=50):
+    for row in _fetch_list_rows(client, STOCK_TYPE_B, page_size=50)[0]:
         b_code = empty_if_dash(row.get("B_STOCK_CODE"))
         if b_code:
             dates[b_code] = normalize_date(row.get("LIST_DATE"))
@@ -162,7 +173,8 @@ def _enrich_one(client: HttpClient, row: dict) -> None:
 def enrich_sse_details(client: HttpClient, companies: list[dict]) -> list[dict]:
     """原地补齐沪市公司的 注册地址/公司网址/A股总股本(股)/A股流通股本(股)/B股上市日期。
 
-    - 只处理 交易所 == "SSE" 的行；单家失败置空继续（股本 None、其余 ''），已补的不回滚
+    - 只处理 交易所 == "SSE" 的行；单家失败置空继续（股本 None、其余 ''），已补的不回滚；
+      每次失败打印该公司代码与异常，结束时有失败则打印汇总（与源数据缺失区分）
     - B股上市日期：先回填映射（B股列表失败则留空），与逐家详情互不影响
     - 连续 5 家详情请求失败 → 判定接口不可用，打印提示并停止补齐
     """
@@ -186,15 +198,21 @@ def enrich_sse_details(client: HttpClient, companies: list[dict]) -> list[dict]:
         if b_code and b_code in b_dates:
             row["B股上市日期"] = b_dates[b_code]
     consecutive_failures = 0
+    failed_codes: list[str] = []
     for row in sse_rows:
+        code = row.get("公司代码") or ""
         try:
             _enrich_one(client, row)
             consecutive_failures = 0
-        except Exception:
+        except Exception as exc:
             consecutive_failures += 1
+            failed_codes.append(code)
+            print(f"公司 {code} 详情补齐失败：{exc!r}")
             if consecutive_failures >= _DEGRADE_THRESHOLD:
                 print("详情接口不可用，已降级为列表字段")
                 break
+    if failed_codes:
+        print(f"共 {len(failed_codes)} 家详情补齐失败")
     return companies
 
 
@@ -244,7 +262,8 @@ def fetch_sse_market_stats(client: HttpClient, date: str, cache_dir: Path) -> li
 
     下载到 cache_dir/sse_stats_{date}.xlsx（URL 虽为 ExcelDd，实测内容是 CDFV2 xls，
     pandas 按内容嗅探自动走 xlrd），解析后删除缓存文件；
-    下载/解析失败打印提示返回 []，不向调用方抛异常。
+    下载/解析失败打印含异常原因的提示返回 []；下载成功但解析到 0 行（布局变更）
+    同样打印提示，均不向调用方抛异常。
     """
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -260,9 +279,12 @@ def fetch_sse_market_stats(client: HttpClient, date: str, cache_dir: Path) -> li
                 "TRADE_DATE": date,
             },
         )
-        return _parse_stats_table(pd.read_excel(dest), date)
-    except Exception:
-        print(f"上交所市场统计获取失败，已跳过 {date}")
+        rows = _parse_stats_table(pd.read_excel(dest), date)
+        if not rows:
+            print("上交所统计表解析到 0 行（布局可能已变更）")
+        return rows
+    except Exception as exc:
+        print(f"上交所市场统计获取失败，已跳过 {date}：{exc!r}")
         return []
     finally:
         dest.unlink(missing_ok=True)  # 缓存文件用后即删

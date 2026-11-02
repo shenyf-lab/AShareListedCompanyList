@@ -3,6 +3,7 @@ import json
 import shutil
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from src.ashare.sse import (
@@ -65,6 +66,26 @@ def test_fetch_covers_both_stock_types():
     assert all(r["交易所"] == "SSE" for r in rows)
 
 
+# ---------- 快照护栏：空/残数据必须抛错，阻止覆盖上次完好快照 ----------
+
+def test_fetch_sse_empty_list_raises():
+    class EmptyClient:
+        def get_jsonp(self, url, params=None):
+            return sample(0)                   # 合法 JSON 但 data 为空
+    with pytest.raises(RuntimeError, match="0 行"):
+        fetch_sse_companies(EmptyClient())
+
+def test_fetch_sse_rows_far_below_total_raises():
+    class ShortClient:
+        """服务端自报 total=2000，实际只解析到 3 行。"""
+        def get_jsonp(self, url, params=None):
+            r = sample()
+            r["pageHelp"]["total"] = 2000
+            return r
+    with pytest.raises(RuntimeError, match="2000"):
+        fetch_sse_companies(ShortClient())
+
+
 # ---------- Task 5: 详情补齐 ----------
 
 PROFILE_FIX = Path(__file__).parent / "fixtures" / "sse_detail_profile.json"
@@ -118,7 +139,7 @@ def test_enrich_fills_address_website_capital():
     assert rows[0]["A股总股本(股)"] >= rows[0]["A股流通股本(股)"] > 0
 
 
-def test_enrich_single_failure_leaves_blank():
+def test_enrich_single_failure_leaves_blank_and_logs(capsys):
     class DeadClient:
         def __init__(self): self.n = 0
         def get_jsonp(self, url, params=None):
@@ -130,6 +151,9 @@ def test_enrich_single_failure_leaves_blank():
     assert rows[0]["注册地址"] == "" and rows[0]["公司网址"] == ""
     assert rows[0]["A股总股本(股)"] is None and rows[0]["A股流通股本(股)"] is None
     assert rows[0]["B股上市日期"] == ""
+    out = capsys.readouterr().out                       # 失败可区分于源数据缺失：记日志
+    assert "600001" in out and "down" in out            # 单家失败行：公司代码 + 异常
+    assert "1 家详情补齐失败" in out                     # 结束汇总
 
 
 def test_enrich_consecutive_failures_degrades_and_stops(capsys):
@@ -289,4 +313,17 @@ def test_fetch_sse_market_stats_download_failure_returns_empty(tmp_path, capsys)
     class DeadClient:
         def download(self, url, dest, params=None): raise RuntimeError("down")
     assert fetch_sse_market_stats(DeadClient(), "2026-10-30", tmp_path) == []
-    assert "上交所市场统计获取失败" in capsys.readouterr().out   # 打印提示，不抛异常
+    out = capsys.readouterr().out                              # 打印提示，不抛异常
+    assert "上交所市场统计获取失败" in out
+    assert "down" in out                                       # 含异常原因（区分网络/解析）
+
+def test_fetch_sse_market_stats_zero_rows_parse_notice(tmp_path, capsys):
+    """下载成功但品种名全不匹配（布局变更）→ 打印 0 行提示并返回 []。"""
+    wrong = tmp_path / "wrong_layout.xlsx"
+    pd.DataFrame([{"品种名称": "债券", "上市公司/家": 100}]).to_excel(wrong, index=False)
+    class DlClient:
+        def download(self, url, dest, params=None):
+            shutil.copy(wrong, dest)
+            return dest
+    assert fetch_sse_market_stats(DlClient(), "2026-10-30", tmp_path) == []
+    assert "解析到 0 行" in capsys.readouterr().out

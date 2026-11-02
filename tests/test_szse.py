@@ -1,6 +1,9 @@
 # tests/test_szse.py
 import json
 from pathlib import Path
+
+import pytest
+
 from src.ashare.storage import STATS_COLUMNS
 from src.ashare.szse import fetch_szse_companies, fetch_szse_market_stats, _parse_company
 
@@ -38,6 +41,37 @@ def test_fetch_pages_until_recordcount():
     rows = fetch_szse_companies(FakeClient([p1]))
     assert len(rows) == 3
     assert {r["公司代码"] for r in rows} == {"000001", "000002", "000010"}
+
+
+# ---------- 快照护栏：空/残数据必须抛错，阻止覆盖上次完好快照 ----------
+
+def test_fetch_empty_list_raises():
+    class EmptyDataClient:
+        def get_json(self, url, params=None):
+            return [{"metadata": {"pagecount": 1, "recordcount": 2905}, "data": []}]
+    with pytest.raises(RuntimeError, match="0 行"):
+        fetch_szse_companies(EmptyDataClient())
+
+def test_fetch_rows_far_below_recordcount_raises():
+    class PagecountRenamedClient:
+        """pagecount 键改名场景：只剩第 1 页 3 行，服务端仍自报 recordcount=2905。"""
+        def get_json(self, url, params=None):
+            resp = json.loads(FIX.read_text(encoding="utf-8"))
+            resp[0]["metadata"].pop("pagecount")
+            return resp
+    with pytest.raises(RuntimeError, match="2905"):
+        fetch_szse_companies(PagecountRenamedClient())
+
+def test_fetch_rows_below_floor_without_recordcount_raises():
+    class NoTotalsClient:
+        """recordcount 也丢失时，走 500 行绝对下限护栏。"""
+        def get_json(self, url, params=None):
+            resp = json.loads(FIX.read_text(encoding="utf-8"))
+            resp[0]["metadata"].pop("pagecount")
+            resp[0]["metadata"].pop("recordcount")
+            return resp
+    with pytest.raises(RuntimeError, match="500"):
+        fetch_szse_companies(NoTotalsClient())
 
 
 # ---------- Task 7: 市场统计 ----------

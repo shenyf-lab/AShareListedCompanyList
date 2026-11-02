@@ -6,7 +6,7 @@ client 由调用方构造并传入（含 Referer 与 x-requested-with 头），�
 """
 import datetime
 
-from .clean import clean_html, empty_if_dash, normalize_date, normalize_number
+from .clean import clean_html, empty_if_dash, guard_row_count, normalize_date, normalize_number
 from .httpclient import HttpClient
 
 SZSE_COMPANY_URL = "https://www.szse.cn/api/report/ShowReport/data"
@@ -45,11 +45,16 @@ def _parse_company(row: dict, fetch_date: str) -> dict:
 
 
 def fetch_szse_companies(client: HttpClient) -> list[dict]:
-    """抓取深交所 A 股上市公司列表（翻页至尾页），返回公司 dict 列表。"""
+    """抓取深交所 A 股上市公司列表（翻页至尾页），返回公司 dict 列表。
+
+    护栏：抓完校验服务端自报总数（metadata.recordcount），空列表或行数 < 95%
+    （自报总数缺失时 < 500 行）抛 RuntimeError，阻止残缺快照覆盖上次完快照。
+    """
     fetch_date = datetime.date.today().isoformat()
     rows: list[dict] = []
     pageno = 1
     pagecount = 1  # 占位，第 1 页响应后更新为服务端真实页数
+    recordcount = 0  # 服务端自报总数（第 1 页响应读取；缺失/非法按 0 处理）
     while pageno <= pagecount:
         resp = client.get_json(
             SZSE_COMPANY_URL,
@@ -57,8 +62,14 @@ def fetch_szse_companies(client: HttpClient) -> list[dict]:
         )
         meta = resp[0]["metadata"]
         pagecount = int(meta.get("pagecount", 1))
+        if pageno == 1:
+            try:
+                recordcount = int(meta.get("recordcount") or 0)
+            except (TypeError, ValueError):
+                recordcount = 0
         rows.extend(resp[0]["data"])
         pageno += 1
+    guard_row_count(len(rows), recordcount, "深交所公司列表")
     return [_parse_company(row, fetch_date) for row in rows]
 
 

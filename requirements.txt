@@ -1,5 +1,5 @@
 requests
-pandas
+pandas>=2.2  # 沪市统计表为 CDFV2 xls，依赖 pandas 按内容嗅探（需较新版本）
 openpyxl
 xlrd>=2.0.1
 
