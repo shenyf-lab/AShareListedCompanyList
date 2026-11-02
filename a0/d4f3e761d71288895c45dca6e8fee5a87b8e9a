@@ -1,0 +1,21 @@
+src/ashare/clean.py
+  s_649b12923fb9f6::t_e98c5a811b7b60 1-59
+tests/test_clean.py
+  s_649b12923fb9f6::t_65c43b77a49a2c 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0d4f3e761d71288895c45dca6e8fee5a87b8e9a",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
