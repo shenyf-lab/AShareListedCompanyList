@@ -1,0 +1,26 @@
+README.md
+  s_649b12923fb9f6::t_905a828e8205d6 86-87
+  s_649b12923fb9f6::t_4f241acc5c6fa5 1-85,88-117,119-126
+tests/test_main.py
+  s_649b12923fb9f6::t_2dc0e735e3b54c 1-82
+src/ashare/main.py
+  s_649b12923fb9f6::t_3366da08448732 1-96
+.gitignore
+  s_649b12923fb9f6::t_dfb669aa2e7887 4-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14cbc92a1eacadf107af253e642897ae311926e3",
+  "prompts": {},
+  "sessions": {
+    "s_649b12923fb9f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72218b16-e171-46bf-9a7b-8e293917030f",
+        "model": "glm-5.3"
+      },
+      "human_author": "shenyanfang <shenyanfang@xiaomi.com>"
+    }
+  }
+}
